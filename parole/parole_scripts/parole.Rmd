@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 ## Load libraries
-```{r libraries}
+```{r libraries, echo = FALSE}
 options(scipen = 2)
 library(tidyverse)
 library(here)
@@ -144,6 +144,10 @@ pr_bm <- pr_motion %>% group_by(board_member_last_name, motion,vote) %>% summari
 pr_bm <- pr_bm %>% add_tally(count)  
 pr_bm <- pr_bm %>% mutate(type_rate = count/n)
 
+pr_bm
+```
+
+```{r by board member}
 library(wesanderson)
 pr_bm %>% ggplot(aes(x=motion,y=count, fill = vote)) + geom_col() +
   facet_wrap(~board_member_last_name) +

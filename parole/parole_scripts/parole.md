@@ -3,11 +3,6 @@ Parole
 
 ## Load libraries
 
-``` r
-options(scipen = 2)
-library(tidyverse)
-```
-
     ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
 
     ## ✓ ggplot2 3.3.5     ✓ purrr   0.3.4
@@ -19,15 +14,7 @@ library(tidyverse)
     ## x dplyr::filter() masks stats::filter()
     ## x dplyr::lag()    masks stats::lag()
 
-``` r
-library(here)
-```
-
     ## here() starts at /Users/yanqixu/Documents/ffp_data
-
-``` r
-library(janitor)
-```
 
     ## 
     ## Attaching package: 'janitor'
@@ -36,20 +23,12 @@ library(janitor)
     ## 
     ##     chisq.test, fisher.test
 
-``` r
-library(lubridate)
-```
-
     ## 
     ## Attaching package: 'lubridate'
 
     ## The following objects are masked from 'package:base':
     ## 
     ##     date, intersect, setdiff, union
-
-``` r
-library(googlesheets4)
-```
 
 ## Roster
 
@@ -309,6 +288,26 @@ pr_bm <- pr_motion %>% group_by(board_member_last_name, motion,vote) %>% summari
 pr_bm <- pr_bm %>% add_tally(count)  
 pr_bm <- pr_bm %>% mutate(type_rate = count/n)
 
+pr_bm
+```
+
+    ## # A tibble: 87 × 6
+    ## # Groups:   board_member_last_name, motion [24]
+    ##    board_member_last_name motion   vote           count     n type_rate
+    ##    <chr>                  <chr>    <chr>          <int> <int>     <dbl>
+    ##  1 Bittinger              deferred Deferment Only    14   828   0.0169 
+    ##  2 Bittinger              deferred No                19   828   0.0229 
+    ##  3 Bittinger              deferred Not Available    200   828   0.242  
+    ##  4 Bittinger              deferred Yes              595   828   0.719  
+    ##  5 Bittinger              denied   No                 8   250   0.032  
+    ##  6 Bittinger              denied   Not Available     62   250   0.248  
+    ##  7 Bittinger              denied   Yes              180   250   0.72   
+    ##  8 Bittinger              paroled  Abstain            3  1416   0.00212
+    ##  9 Bittinger              paroled  No                19  1416   0.0134 
+    ## 10 Bittinger              paroled  Not Available    199  1416   0.141  
+    ## # … with 77 more rows
+
+``` r
 library(wesanderson)
 pr_bm %>% ggplot(aes(x=motion,y=count, fill = vote)) + geom_col() +
   facet_wrap(~board_member_last_name) +
@@ -316,4 +315,4 @@ pr_bm %>% ggplot(aes(x=motion,y=count, fill = vote)) + geom_col() +
   theme_minimal()
 ```
 
-![](parole_files/figure-gfm/votes%20data%20by%20member-1.png)<!-- -->
+![](parole_files/figure-gfm/by%20board%20member-1.png)<!-- -->
