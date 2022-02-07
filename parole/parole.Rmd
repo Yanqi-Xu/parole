@@ -44,7 +44,7 @@ inmateDB1 <- inmateDB1 %>%
 
 ### Read
 clean columns
-```{read parole by vote}
+```{r read parole by vote}
 pr_votes_path <- here("parole","parole_by_votes.csv")
 pr_votes <- read_csv(pr_votes_path)
 pr_votes <- pr_votes %>% clean_names()
@@ -99,8 +99,8 @@ pr_ind_pattern <- pr_ind_pattern %>% pivot_wider(names_from = vote, values_from 
 ```
 
 ### Compare missing
-Of these `r nrow(pr_ind_pattern)` hearings, `r nrow(pr_ind_pattern %>% filter(missing_member == "MISSING MEMBER"))`
-```{r individual pattern}
+Of these `r nrow(pr_ind_pattern)` hearings, `r sum(pr_ind_pattern$missing_member == "MISSING MEMBER")`
+```{r compare missing}
 # add parole indicator column 
 pr_ind_pattern <- pr_ind_pattern %>% 
   mutate(is_paroled = if_else(condition = motion == "paroled" & yes >=3, true = "PAROLED", false = "NOT PAROLED"),
@@ -139,7 +139,7 @@ pr_ind_pattern2 %>% ggplot(aes(y = motion_rate, x = race_desc, fill = missing_me
 ```
 
 ### Board members' voting patterns
-```{r votes data fill results}
+```{r votes data by member}
 pr_bm <- pr_motion %>% group_by(board_member_last_name, motion,vote) %>% summarize( count = n())
 pr_bm <- pr_bm %>% add_tally(count)  
 pr_bm <- pr_bm %>% mutate(type_rate = count/n)
