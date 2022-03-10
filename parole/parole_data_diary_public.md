@@ -6,48 +6,9 @@ Parole hearing data diary
 ``` r
 options(scipen = 2)
 library(tidyverse)
-```
-
-    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
-
-    ## ✓ ggplot2 3.3.5     ✓ purrr   0.3.4
-    ## ✓ tibble  3.1.6     ✓ dplyr   1.0.7
-    ## ✓ tidyr   1.1.4     ✓ stringr 1.4.0
-    ## ✓ readr   2.0.2     ✓ forcats 0.5.1
-
-    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-    ## x dplyr::filter() masks stats::filter()
-    ## x dplyr::lag()    masks stats::lag()
-
-``` r
 library(here)
-```
-
-    ## here() starts at /Users/yanqixu/Documents/ffp_data
-
-``` r
 library(janitor)
-```
-
-    ## 
-    ## Attaching package: 'janitor'
-
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     chisq.test, fisher.test
-
-``` r
 library(lubridate)
-```
-
-    ## 
-    ## Attaching package: 'lubridate'
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     date, intersect, setdiff, union
-
-``` r
 library(campfin)
 library(calendar)
 library(googlesheets4)
@@ -153,13 +114,11 @@ pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>%
     ## `summarise()` has grouped output by 'id_number', 'hearing_date', 'vote'. You can override using the `.groups` argument.
 
 ``` r
-# pivot from vote-yes,not available, no to how many yes votes, how many no votes and how many nas. We 
+# pivot from vote-yes,not available, no to how many yes votes, how many no votes and how many NAs. 
 pr_ind_pattern <- pr_ind_pattern %>% pivot_wider(names_from = vote, values_from = number) %>% clean_names()
 ```
 
-### Compare missing
-
-Of these 6443 hearings, 0 had missing members.
+### Count the number of hearings with at least one missing member
 
 ``` r
 # add parole indicator column & absence indicator column
@@ -168,8 +127,9 @@ pr_ind_pattern <- pr_ind_pattern %>%
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
 
-Number of hearings attended by partial v. full board This answers the
-first question: How many individual hearings had the full board in
+Of these 6443 hearings, 4033 had at least one absence. ### Number of
+hearings attended by partial v. full board This section seeks to answer
+the first question: How many individual hearings had the full board in
 attendance and how many had at least one member missing?
 
 ``` r

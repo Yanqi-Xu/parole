@@ -5,7 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 ## Load libraries
-```{r libraries,results='hide'}
+```{r libraries,results='hide',message=FALSE}
 options(scipen = 2)
 library(tidyverse)
 library(here)
@@ -32,7 +32,8 @@ pr_votes1 <- pr_votes %>%
 ```
 
 ### Fill down rows
-In the original data, each individual hearing takes up five lines, with the first line showing the motions (there are seveal columns `deferred`,`paroled`,`denied` and `defer to md`, which means deferred to mandatory discharge and is not a motion of its own but often accompanies a denial). 
+
+In the original data, each individual hearing takes up five lines, with the first line showing the motions (there are seveal columns `deferred`,`paroled`,`denied` and `defer to md`, which means deferred to mandatory discharge and is not a motion of its own but often accompanies a denial).    
 
 First, I filled down the person's id number, name and hearing days. Then I wrote a function `fill_results()` here to fill down the motion for all five members. 
 
@@ -58,6 +59,7 @@ fill_results <- function(df) {
 
 pr_by_votes <- fill_results(pr_votes1)
 ```
+
 ### Summarize
 #### Data manipulation
 pr_ind: transpose the data from (board member last name and their votes) into (cotton, gissler, etc.) still 6521 individual hearings
@@ -78,22 +80,22 @@ pr_motion <- pr_motion %>%
 ```{r individual pattern}
 # new table by motion and type of vote counts, 36150 records 
 pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>% summarize(number = n())
-# pivot from vote-yes,not available, no to how many yes votes, how many no votes and how many nas. We 
+# pivot from vote-yes,not available, no to how many yes votes, how many no votes and how many NAs. 
 pr_ind_pattern <- pr_ind_pattern %>% pivot_wider(names_from = vote, values_from = number) %>% clean_names()
 ```
 
 
-### Compare missing
-Of these `r nrow(pr_ind_pattern)` hearings, `r sum(pr_ind_pattern$missing_member == "MISSING MEMBER")` had missing members.
+### Count the number of hearings with at least one missing member
+
 ```{r compare missing}
 # add parole indicator column & absence indicator column
 pr_ind_pattern <- pr_ind_pattern %>% 
   mutate(is_paroled = if_else(condition = motion == "paroled" & yes >=3, true = "PAROLED", false = "NOT PAROLED"),
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
-
-Number of hearings attended by partial v. full board 
-This answers the first question: How many individual hearings had the full board in attendance and how many had at least one member missing?
+Of these `r nrow(pr_ind_pattern)` hearings, `r sum(pr_ind_pattern$missing_member == "MISSING MEMBER")` had at least one absence.
+### Number of hearings attended by partial v. full board 
+This section seeks to answer the first question: How many individual hearings had the full board in attendance and how many had at least one member missing?
 ```{r missing vs. fully present}
 pr_ind_pattern$missing_member %>% tabyl()
 ```
