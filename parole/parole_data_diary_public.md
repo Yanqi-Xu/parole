@@ -140,6 +140,18 @@ pr_ind_pattern$missing_member %>% tabyl()
     ##  MISSING MEMBER 4033 0.6259506
     ##      NO MISSING 2410 0.3740494
 
+We can break it down by year and the missing rate again.
+
+``` r
+pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% tabyl(year, missing_member) %>% clean_names() %>% mutate(rate = missing_member/(missing_member+no_missing))
+```
+
+    ##  year missing_member no_missing      rate
+    ##  2018            606        601 0.5020713
+    ##  2019           1175        727 0.6177708
+    ##  2020           1246        624 0.6663102
+    ##  2021           1006        458 0.6871585
+
 ### Number of hearing days with at least one absence
 
 This answers the second question: 2. How many full days had at least one
@@ -178,6 +190,26 @@ pr_miss_true <- pr_miss %>% filter(missing_rate ==1 & vote == "Not Available")
 # 119 days with one board member absent, 69 days when two board members were missing
 pr_board_miss <- pr_miss_true %>% group_by(hearing_date) %>% summarize(member_absent = n())
 
+#break it down by year
+x <- pr_board_miss %>% mutate(year=year(hearing_date)) %>% tabyl(year) %>% select(-percent) %>% rename(missed = n)
+
+y <- pr_ind_pattern$hearing_date %>% unique() %>% year() %>% tabyl() %>% select(-percent) %>% rename(year=1, total = n)
+z <- x %>% left_join(y) %>% mutate(missing_rate = missed/total)
+```
+
+    ## Joining, by = "year"
+
+``` r
+z
+```
+
+    ##  year missed total missing_rate
+    ##  2018     21    52    0.4038462
+    ##  2019     44    83    0.5301205
+    ##  2020     62    96    0.6458333
+    ##  2021     57    91    0.6263736
+
+``` r
 # how many days did the board have hearings, in total, count the distinct days -- 322
 pr_ind_pattern$hearing_date %>% n_distinct()
 ```
