@@ -22,7 +22,11 @@ individual cases/hearings had at least one absence and how many had the
 full board in attendance? 2. How many full days had at least one board
 member missing the full day, what’s the percentage of absence days out
 of all hearing days? 3. What’s the parole grant rate when the parole was
-full, short 1,2,and 3 members respectively? ### Read clean columns
+full, short 1,2,and 3 members respectively?
+
+### Read
+
+clean columns
 
 ``` r
 pr_votes_path <- here("parole","parole_by_votes.csv")
@@ -127,10 +131,13 @@ pr_ind_pattern <- pr_ind_pattern %>%
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
 
-Of these 6443 hearings, 4033 had at least one absence. ### Number of
-hearings attended by partial v. full board This section seeks to answer
-the first question: How many individual hearings had the full board in
-attendance and how many had at least one member missing?
+Of these 6443 hearings, 4033 had at least one absence.
+
+### Number of hearings attended by partial v. full board
+
+This section seeks to answer the first question: How many individual
+hearings had the full board in attendance and how many had at least one
+member missing?
 
 ``` r
 pr_ind_pattern$missing_member %>% tabyl()
@@ -254,3 +261,20 @@ cross_tabs_perc
     ##             1    43.55680  56.44320
     ##             2    43.98960  56.01040
     ##             3   100.00000   0.00000
+
+### Chi-square Test
+
+A chi-square test could help us determine whether the two variables
+`parole vs. not paroled` and `missing member(s) vs fully present`, but
+it assumes that these results are independent – so we only filter for
+everyone’s first hearing.
+
+``` r
+pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date == min(hearing_date))
+
+test <- chisq.test(table(pr_for_chisq$is_paroled, pr_for_chisq$missing_member))
+
+test$p.value <= 0.05
+```
+
+    ## [1] TRUE
