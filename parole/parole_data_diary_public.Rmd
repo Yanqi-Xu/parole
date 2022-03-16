@@ -106,6 +106,10 @@ We can break it down by year and the missing rate again.
 pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% tabyl(year, missing_member) %>% clean_names() %>% mutate(rate = missing_member/(missing_member+no_missing))
 ```
 
+```{r}
+pr_by_votes %>% filter(is.na(deferred) & is.na(denied) & is.na(paroled)) %>% tabyl(id_number,vote) %>% clean_names() %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
+```
+
 ### Number of hearing days with at least one absence
 This answers the second question: 2. How many full days had at least one board member missing the full day, what's the percentage of absence days out of all hearing days?
 ```{r}
@@ -140,6 +144,24 @@ pr_votes1$hearing_date %>% n_distinct()
 
 184/322 = 57%
 
+#### Hearing days missed by member
+```{r hearing days member}
+# how many hearings each board member attended
+pr_bm_hearings <- pr_miss_tj %>% group_by(board_member_last_name) %>% summarize(hearing_no = n())
+
+pr_miss_true1 <- pr_miss_true %>% 
+  group_by(board_member_last_name) %>% summarize(hearing_missed = n())
+
+pr_miss_stat <- pr_miss_true1 %>% left_join(pr_bm_hearings) %>% mutate(missed_rate = hearing_missed/hearing_no)
+
+pr_miss_stat <- pr_miss_stat %>% 
+  rename(hearing_days_total = hearing_no,
+          missing_hearing_days = hearing_missed,
+         absent_rate = missed_rate)
+
+pr_miss_stat
+```
+
 
 #### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
 
@@ -159,6 +181,8 @@ cross_tabs_perc
 ### Chi-square Test
 
 A chi-square test could help us determine whether the two variables `parole vs. not paroled` and `missing member(s) vs fully present`, but it assumes that these results are independent -- so we only filter for everyone's first hearing. 
+
+the p value is lower than 5%, so the two variables are not independent it seems. 
 ```{r}
 pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date == min(hearing_date))
 

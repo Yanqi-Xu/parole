@@ -159,6 +159,14 @@ pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% tabyl(year, missing_mem
     ##  2020           1246        624 0.6663102
     ##  2021           1006        458 0.6871585
 
+``` r
+pr_by_votes %>% filter(is.na(deferred) & is.na(denied) & is.na(paroled)) %>% tabyl(id_number,vote) %>% clean_names() %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
+```
+
+    ##  missing_member  n   percent
+    ##           FALSE 25 0.3676471
+    ##            TRUE 43 0.6323529
+
 ### Number of hearing days with at least one absence
 
 This answers the second question: 2. How many full days had at least one
@@ -232,6 +240,41 @@ pr_votes1$hearing_date %>% n_distinct()
 
 184/322 = 57%
 
+#### Hearing days missed by member
+
+``` r
+# how many hearings each board member attended
+pr_bm_hearings <- pr_miss_tj %>% group_by(board_member_last_name) %>% summarize(hearing_no = n())
+
+pr_miss_true1 <- pr_miss_true %>% 
+  group_by(board_member_last_name) %>% summarize(hearing_missed = n())
+
+pr_miss_stat <- pr_miss_true1 %>% left_join(pr_bm_hearings) %>% mutate(missed_rate = hearing_missed/hearing_no)
+```
+
+    ## Joining, by = "board_member_last_name"
+
+``` r
+pr_miss_stat <- pr_miss_stat %>% 
+  rename(hearing_days_total = hearing_no,
+          missing_hearing_days = hearing_missed,
+         absent_rate = missed_rate)
+
+pr_miss_stat
+```
+
+    ## # A tibble: 8 × 4
+    ##   board_member_last_name missing_hearing_days hearing_days_total absent_rate
+    ##   <chr>                                 <int>              <int>       <dbl>
+    ## 1 Bittinger                                16                106       0.151
+    ## 2 Cotton                                   62                322       0.193
+    ## 3 Gissler                                  46                322       0.143
+    ## 4 Langan                                   29                216       0.134
+    ## 5 Olomi                                     7                 27       0.259
+    ## 6 Patlan                                   40                295       0.136
+    ## 7 Richard                                   8                 46       0.174
+    ## 8 Twiss                                    45                276       0.163
+
 #### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
 
 ``` r
@@ -268,6 +311,9 @@ A chi-square test could help us determine whether the two variables
 `parole vs. not paroled` and `missing member(s) vs fully present`, but
 it assumes that these results are independent – so we only filter for
 everyone’s first hearing.
+
+the p value is lower than 5%, so the two variables are not independent
+it seems.
 
 ``` r
 pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date == min(hearing_date))
