@@ -191,4 +191,30 @@ test <- chisq.test(table(pr_for_chisq$is_paroled, pr_for_chisq$missing_member))
 test$p.value <= 0.05
 ```
 
+### How's each person's absence related to parole rate?
+
+```{r}
+DB_path <- here("parole","inmateDB","inmateDB1.csv")
+DB <- read_csv(DB_path)
+
+DB1 <- DB %>% 
+  mutate_at(.vars = vars(ends_with("date")), .funs = as.Date, format = "%m/%d/%Y") %>% clean_names()
+# each person's pattern plus who was missing, a total of 7988 records. That means for the 6443 people, 2410 had a full board hearing, out of the 4,033 parolees, board members were absent 5,578 times (1 * (1085+1406) + 2 * (677+862) + 3 * (3+0)) [not paroled, paroled]
+pr_pattern_board <- pr_ind_pattern %>% left_join(pr_motion %>% filter(vote == 'Not Available'))
+
+pr_pattern_board <- pr_pattern_board %>% mutate(missing_board_member = board_member_last_name %>%  replace(is.na(.), "none"))
+
+
+# cross tabulation counts of grant vs. not grant outcomes by parole member absence
+board_summary <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board)
+board_summary
+100 * prop.table(board_summary, 1)
+### parole rate among Black prisoners when certain members were absent 
+pr_pattern_board <- pr_pattern_board %>% left_join(DB1)
+board_summary_race <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(race_desc == "BLACK"))
+100 * prop.table(board_summary_race, 1)
+### parole rate among female prisoners when certain members were absent 
+board_summary_gender <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(gender == "FEMALE"))
+100 * prop.table(board_summary_gender, 1)
+```
 

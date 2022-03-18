@@ -324,3 +324,120 @@ test$p.value <= 0.05
 ```
 
     ## [1] TRUE
+
+### How’s each person’s absence related to parole rate?
+
+``` r
+DB_path <- here("parole","inmateDB","inmateDB1.csv")
+DB <- read_csv(DB_path)
+```
+
+    ## New names:
+    ## * `FIRST NAME` -> `FIRST NAME...3`
+    ## * `MIDDLE NAME` -> `MIDDLE NAME...4`
+    ## * `NAME EXTENSION` -> `NAME EXTENSION...5`
+    ## * `FIRST NAME` -> `FIRST NAME...7`
+    ## * `MIDDLE NAME` -> `MIDDLE NAME...8`
+    ## * ...
+
+    ## Warning: One or more parsing issues, see `problems()` for details
+
+    ## Rows: 75103 Columns: 37
+
+    ## ── Column specification ────────────────────────────────────────────────────────
+    ## Delimiter: ","
+    ## chr (27): COMMITTED LAST NAME, FIRST NAME...3, MIDDLE NAME...4, NAME EXTENSI...
+    ## dbl  (9): ID NUMBER, MIN MONTH, MIN DAY, MAX MONTH, MAX DAY, MAN MIN TERM/YE...
+    ## lgl  (1): NAME EXTENSION...9
+
+    ## 
+    ## ℹ Use `spec()` to retrieve the full column specification for this data.
+    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+
+``` r
+DB1 <- DB %>% 
+  mutate_at(.vars = vars(ends_with("date")), .funs = as.Date, format = "%m/%d/%Y") %>% clean_names()
+# each person's pattern plus who was missing, a total of 7988 records. That means for the 6443 people, 2410 had a full board hearing, out of the 4,033 parolees, board members were absent 5,578 times (1 * (1085+1406) + 2 * (677+862) + 3 * (3+0)) [not paroled, paroled]
+pr_pattern_board <- pr_ind_pattern %>% left_join(pr_motion %>% filter(vote == 'Not Available'))
+```
+
+    ## Joining, by = c("id_number", "hearing_date", "motion")
+
+``` r
+pr_pattern_board <- pr_pattern_board %>% mutate(missing_board_member = board_member_last_name %>%  replace(is.na(.), "none"))
+
+
+# cross tabulation counts of grant vs. not grant outcomes by parole member absence
+board_summary <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board)
+board_summary
+```
+
+    ##                     is_paroled
+    ## missing_board_member NOT PAROLED PAROLED
+    ##            Bittinger         262     199
+    ##            Cotton            492     665
+    ##            Gissler           420     665
+    ##            Langan            286     316
+    ##            none              901    1509
+    ##            Olomi              42      48
+    ##            Patlan            399     517
+    ##            Richard           115      94
+    ##            Twiss             432     626
+
+``` r
+100 * prop.table(board_summary, 1)
+```
+
+    ##                     is_paroled
+    ## missing_board_member NOT PAROLED  PAROLED
+    ##            Bittinger    56.83297 43.16703
+    ##            Cotton       42.52377 57.47623
+    ##            Gissler      38.70968 61.29032
+    ##            Langan       47.50831 52.49169
+    ##            none         37.38589 62.61411
+    ##            Olomi        46.66667 53.33333
+    ##            Patlan       43.55895 56.44105
+    ##            Richard      55.02392 44.97608
+    ##            Twiss        40.83176 59.16824
+
+``` r
+### parole rate among Black prisoners when certain members were absent 
+pr_pattern_board <- pr_pattern_board %>% left_join(DB1)
+```
+
+    ## Joining, by = "id_number"
+
+``` r
+board_summary_race <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(race_desc == "BLACK"))
+100 * prop.table(board_summary_race, 1)
+```
+
+    ##                     is_paroled
+    ## missing_board_member NOT PAROLED  PAROLED
+    ##            Bittinger    62.20472 37.79528
+    ##            Cotton       48.08362 51.91638
+    ##            Gissler      37.63066 62.36934
+    ##            Langan       54.36242 45.63758
+    ##            none         41.26739 58.73261
+    ##            Olomi        53.84615 46.15385
+    ##            Patlan       51.51515 48.48485
+    ##            Richard      62.12121 37.87879
+    ##            Twiss        43.90244 56.09756
+
+``` r
+### parole rate among female prisoners when certain members were absent 
+board_summary_gender <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(gender == "FEMALE"))
+100 * prop.table(board_summary_gender, 1)
+```
+
+    ##                     is_paroled
+    ## missing_board_member NOT PAROLED  PAROLED
+    ##            Bittinger    53.84615 46.15385
+    ##            Cotton       28.68852 71.31148
+    ##            Gissler      22.97297 77.02703
+    ##            Langan       36.36364 63.63636
+    ##            none         23.57414 76.42586
+    ##            Olomi        29.41176 70.58824
+    ##            Patlan       32.94118 67.05882
+    ##            Richard      41.66667 58.33333
+    ##            Twiss        23.37662 76.62338
