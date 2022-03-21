@@ -16,7 +16,7 @@ library(calendar)
 library(googlesheets4)
 ```
 
-## Parole by votes 
+## Data 
 The data was obtained via a public records request filled by the Nebraska Board of Parole. We ask three data questions: 
 1. How many individual cases/hearings had at least one absence and how many had the full board in attendance?
 2. How many full days had at least one board member missing the full day, what's the percentage of absence days out of all hearing days?
@@ -64,10 +64,9 @@ pr_by_votes <- fill_results(pr_votes1)
 ### Summarize
 #### Data manipulation
 pr_ind: transpose the data from (board member last name and their votes) into (cotton, gissler, etc.) still 6521 individual hearings
-Those could be data entry errors. We decide to still include them in the data and count absence rate accordingly. So we first create a column `none`.
-pr_motion: collapse the three columns `paroled`, `denied` and `deferred` and `none` into one single column motion
-Then since we'll end up with lots of empty rows resulted from votes on decisions on motions that weren't actually made. It has 97815 rows. 
-Then we need to get rid of empty rows. Also sometimes there're records with no motion recorded but votes recorded. 
+Then we need to get rid of empty rows. Also sometimes there're records with no motion recorded but votes recorded. Those could be data entry errors. We decide to still include them in the data and count absence rate accordingly. So we first create a column `none` indicating whether the motion made was none/NA.
+pr_motion: collapse the three columns `paroled`, `denied` and `deferred` and `none` into one single column motion.
+
 ```{r votes wider individual level results}
 # create a column indicating if the motion was "none"
 pr_by_votes <- pr_by_votes %>% mutate(none = if_else(condition = is.na(paroled) & is.na(deferred) & is.na(denied), true = "none", false = NA_character_))
@@ -78,7 +77,7 @@ pr_motion <- pr_motion %>%
   filter(!is.na(value)) %>% select(-value)
 ```
 #### individual vote pattern
-
+When we group the `pr_motion` dataset by member and vote so we can see the vote pattern for each hearing, namely how many voted yes, no and not available.
 ```{r individual pattern}
 # new table by motion and type of vote counts, 36,150 records 
 pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>% summarize(number = n())
@@ -138,6 +137,7 @@ z <- x %>% left_join(y) %>% mutate(missing_rate = missed/total)
 
 z
 sum(z$missed)
+
 # how many days did the board have hearings, in total, count the distinct days -- 322
 pr_ind_pattern$hearing_date %>% n_distinct()
 # it's the same thing if we apply it to the original data
@@ -166,12 +166,12 @@ pr_miss_stat
 
 
 #### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
-
+Note that here we need to eliminate all the none-motion hearings and only look at hearings at which an actual motion was made. 
 ```{r}
 
 # look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
 #here I also substituted all the NAs (not_available was NA means no one was unavailable)
-cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% mutate(not_available = replace_na(not_available, replace = 0)))
+cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
 
 cross_tabs
 # cross tabulation in percentage

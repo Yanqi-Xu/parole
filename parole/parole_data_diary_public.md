@@ -14,7 +14,7 @@ library(calendar)
 library(googlesheets4)
 ```
 
-## Parole by votes
+## Data
 
 The data was obtained via a public records request filled by the
 Nebraska Board of Parole. We ask three data questions: 1. How many
@@ -90,15 +90,13 @@ pr_by_votes <- fill_results(pr_votes1)
 #### Data manipulation
 
 pr_ind: transpose the data from (board member last name and their votes)
-into (cotton, gissler, etc.) still 6521 individual hearings Those could
-be data entry errors. We decide to still include them in the data and
-count absence rate accordingly. So we first create a column `none`.
-pr_motion: collapse the three columns `paroled`, `denied` and `deferred`
-and `none` into one single column motion Then since we’ll end up with
-lots of empty rows resulted from votes on decisions on motions that
-weren’t actually made. It has 97815 rows. Then we need to get rid of
-empty rows. Also sometimes there’re records with no motion recorded but
-votes recorded.
+into (cotton, gissler, etc.) still 6521 individual hearings Then we need
+to get rid of empty rows. Also sometimes there’re records with no motion
+recorded but votes recorded. Those could be data entry errors. We decide
+to still include them in the data and count absence rate accordingly. So
+we first create a column `none` indicating whether the motion made was
+none/NA. pr_motion: collapse the three columns `paroled`, `denied` and
+`deferred` and `none` into one single column motion.
 
 ``` r
 # create a column indicating if the motion was "none"
@@ -111,6 +109,10 @@ pr_motion <- pr_motion %>%
 ```
 
 #### individual vote pattern
+
+When we group the `pr_motion` dataset by member and vote so we can see
+the vote pattern for each hearing, namely how many voted yes, no and not
+available.
 
 ``` r
 # new table by motion and type of vote counts, 36,150 records 
@@ -285,19 +287,22 @@ pr_miss_stat
 
 #### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
 
+Note that here we need to eliminate all the none-motion hearings and
+only look at hearings at which an actual motion was made.
+
 ``` r
 # look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
 #here I also substituted all the NAs (not_available was NA means no one was unavailable)
-cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% mutate(not_available = replace_na(not_available, replace = 0)))
+cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
 
 cross_tabs
 ```
 
     ##              is_paroled
     ## not_available NOT PAROLED PAROLED
-    ##             0         932    1509
-    ##             1        1114    1406
-    ##             2         695     862
+    ##             0         901    1509
+    ##             1        1085    1406
+    ##             2         677     862
     ##             3           3       0
 
 ``` r
@@ -308,9 +313,9 @@ cross_tabs_perc
 
     ##              is_paroled
     ## not_available NOT PAROLED   PAROLED
-    ##             0    38.18107  61.81893
-    ##             1    44.20635  55.79365
-    ##             2    44.63712  55.36288
+    ##             0    37.38589  62.61411
+    ##             1    43.55680  56.44320
+    ##             2    43.98960  56.01040
     ##             3   100.00000   0.00000
 
 ### Chi-square Test
