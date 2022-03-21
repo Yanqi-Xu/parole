@@ -64,22 +64,23 @@ pr_by_votes <- fill_results(pr_votes1)
 ### Summarize
 #### Data manipulation
 pr_ind: transpose the data from (board member last name and their votes) into (cotton, gissler, etc.) still 6521 individual hearings
-pr_motion: collapse the three columns `paroled`, `denied` and `deferred` into one single column motion
+Those could be data entry errors. We decide to still include them in the data and count absence rate accordingly. So we first create a column `none`.
+pr_motion: collapse the three columns `paroled`, `denied` and `deferred` and `none` into one single column motion
 Then since we'll end up with lots of empty rows resulted from votes on decisions on motions that weren't actually made. It has 97815 rows. 
-Then we need to get rid of empty rows. By doing this we also exclude hearings with no motions indicated in the data. Now we have 6,643 actual hearings.
+Then we need to get rid of empty rows. Also sometimes there're records with no motion recorded but votes recorded. 
 ```{r votes wider individual level results}
-pr_ind <- pr_by_votes %>% 
-  pivot_wider(names_from = board_member_last_name, values_from = vote) 
+# create a column indicating if the motion was "none"
+pr_by_votes <- pr_by_votes %>% mutate(none = if_else(condition = is.na(paroled) & is.na(deferred) & is.na(denied), true = "none", false = NA_character_))
 # new table by motion, member, vote
 pr_motion <- pr_by_votes %>% 
-  pivot_longer(cols = c(paroled,denied,deferred),names_to = "motion") 
+  pivot_longer(cols = c(paroled,denied,deferred,none),names_to = "motion") 
 pr_motion <- pr_motion %>% 
   filter(!is.na(value)) %>% select(-value)
 ```
 #### individual vote pattern
 
 ```{r individual pattern}
-# new table by motion and type of vote counts, 36150 records 
+# new table by motion and type of vote counts, 36,150 records 
 pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>% summarize(number = n())
 # pivot from vote-yes,not available, no to how many yes votes, how many no votes and how many NAs. 
 pr_ind_pattern <- pr_ind_pattern %>% pivot_wider(names_from = vote, values_from = number) %>% clean_names()
@@ -136,6 +137,7 @@ y <- pr_ind_pattern$hearing_date %>% unique() %>% year() %>% tabyl() %>% select(
 z <- x %>% left_join(y) %>% mutate(missing_rate = missed/total)
 
 z
+nrow(z)
 # how many days did the board have hearings, in total, count the distinct days -- 322
 pr_ind_pattern$hearing_date %>% n_distinct()
 # it's the same thing if we apply it to the original data
@@ -189,32 +191,5 @@ pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date =
 test <- chisq.test(table(pr_for_chisq$is_paroled, pr_for_chisq$missing_member))
 
 test$p.value <= 0.05
-```
-
-### How's each person's absence related to parole rate?
-
-```{r}
-DB_path <- here("parole","inmateDB","inmateDB1.csv")
-DB <- read_csv(DB_path)
-
-DB1 <- DB %>% 
-  mutate_at(.vars = vars(ends_with("date")), .funs = as.Date, format = "%m/%d/%Y") %>% clean_names()
-# each person's pattern plus who was missing, a total of 7988 records. That means for the 6443 people, 2410 had a full board hearing, out of the 4,033 parolees, board members were absent 5,578 times (1 * (1085+1406) + 2 * (677+862) + 3 * (3+0)) [not paroled, paroled]
-pr_pattern_board <- pr_ind_pattern %>% left_join(pr_motion %>% filter(vote == 'Not Available'))
-
-pr_pattern_board <- pr_pattern_board %>% mutate(missing_board_member = board_member_last_name %>%  replace(is.na(.), "none"))
-
-
-# cross tabulation counts of grant vs. not grant outcomes by parole member absence
-board_summary <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board)
-board_summary
-100 * prop.table(board_summary, 1)
-### parole rate among Black prisoners when certain members were absent 
-pr_pattern_board <- pr_pattern_board %>% left_join(DB1)
-board_summary_race <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(race_desc == "BLACK"))
-100 * prop.table(board_summary_race, 1)
-### parole rate among female prisoners when certain members were absent 
-board_summary_gender <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(gender == "FEMALE"))
-100 * prop.table(board_summary_gender, 1)
 ```
 

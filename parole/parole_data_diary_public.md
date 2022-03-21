@@ -90,20 +90,22 @@ pr_by_votes <- fill_results(pr_votes1)
 #### Data manipulation
 
 pr_ind: transpose the data from (board member last name and their votes)
-into (cotton, gissler, etc.) still 6521 individual hearings pr_motion:
-collapse the three columns `paroled`, `denied` and `deferred` into one
-single column motion Then since we’ll end up with lots of empty rows
-resulted from votes on decisions on motions that weren’t actually made.
-It has 97815 rows. Then we need to get rid of empty rows. By doing this
-we also exclude hearings with no motions indicated in the data. Now we
-have 6,643 actual hearings.
+into (cotton, gissler, etc.) still 6521 individual hearings Those could
+be data entry errors. We decide to still include them in the data and
+count absence rate accordingly. So we first create a column `none`.
+pr_motion: collapse the three columns `paroled`, `denied` and `deferred`
+and `none` into one single column motion Then since we’ll end up with
+lots of empty rows resulted from votes on decisions on motions that
+weren’t actually made. It has 97815 rows. Then we need to get rid of
+empty rows. Also sometimes there’re records with no motion recorded but
+votes recorded.
 
 ``` r
-pr_ind <- pr_by_votes %>% 
-  pivot_wider(names_from = board_member_last_name, values_from = vote) 
+# create a column indicating if the motion was "none"
+pr_by_votes <- pr_by_votes %>% mutate(none = if_else(condition = is.na(paroled) & is.na(deferred) & is.na(denied), true = "none", false = NA_character_))
 # new table by motion, member, vote
 pr_motion <- pr_by_votes %>% 
-  pivot_longer(cols = c(paroled,denied,deferred),names_to = "motion") 
+  pivot_longer(cols = c(paroled,denied,deferred,none),names_to = "motion") 
 pr_motion <- pr_motion %>% 
   filter(!is.na(value)) %>% select(-value)
 ```
@@ -111,7 +113,7 @@ pr_motion <- pr_motion %>%
 #### individual vote pattern
 
 ``` r
-# new table by motion and type of vote counts, 36150 records 
+# new table by motion and type of vote counts, 36,150 records 
 pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>% summarize(number = n())
 ```
 
@@ -131,7 +133,7 @@ pr_ind_pattern <- pr_ind_pattern %>%
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
 
-Of these 6443 hearings, 4033 had at least one absence.
+Of these 6521 hearings, 4080 had at least one absence.
 
 ### Number of hearings attended by partial v. full board
 
@@ -144,8 +146,8 @@ pr_ind_pattern$missing_member %>% tabyl()
 ```
 
     ##               .    n   percent
-    ##  MISSING MEMBER 4033 0.6259506
-    ##      NO MISSING 2410 0.3740494
+    ##  MISSING MEMBER 4080 0.6256709
+    ##      NO MISSING 2441 0.3743291
 
 We can break it down by year and the missing rate again.
 
@@ -154,10 +156,10 @@ pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% tabyl(year, missing_mem
 ```
 
     ##  year missing_member no_missing      rate
-    ##  2018            606        601 0.5020713
-    ##  2019           1175        727 0.6177708
-    ##  2020           1246        624 0.6663102
-    ##  2021           1006        458 0.6871585
+    ##  2018            614        611 0.5012245
+    ##  2019           1185        735 0.6171875
+    ##  2020           1260        632 0.6659619
+    ##  2021           1021        463 0.6880054
 
 ``` r
 pr_by_votes %>% filter(is.na(deferred) & is.na(denied) & is.na(paroled)) %>% tabyl(id_number,vote) %>% clean_names() %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
@@ -287,9 +289,9 @@ cross_tabs
 
     ##              is_paroled
     ## not_available NOT PAROLED PAROLED
-    ##             0         901    1509
-    ##             1        1085    1406
-    ##             2         677     862
+    ##             0         932    1509
+    ##             1        1114    1406
+    ##             2         695     862
     ##             3           3       0
 
 ``` r
@@ -300,9 +302,9 @@ cross_tabs_perc
 
     ##              is_paroled
     ## not_available NOT PAROLED   PAROLED
-    ##             0    37.38589  62.61411
-    ##             1    43.55680  56.44320
-    ##             2    43.98960  56.01040
+    ##             0    38.18107  61.81893
+    ##             1    44.20635  55.79365
+    ##             2    44.63712  55.36288
     ##             3   100.00000   0.00000
 
 ### Chi-square Test
@@ -324,120 +326,3 @@ test$p.value <= 0.05
 ```
 
     ## [1] TRUE
-
-### How’s each person’s absence related to parole rate?
-
-``` r
-DB_path <- here("parole","inmateDB","inmateDB1.csv")
-DB <- read_csv(DB_path)
-```
-
-    ## New names:
-    ## * `FIRST NAME` -> `FIRST NAME...3`
-    ## * `MIDDLE NAME` -> `MIDDLE NAME...4`
-    ## * `NAME EXTENSION` -> `NAME EXTENSION...5`
-    ## * `FIRST NAME` -> `FIRST NAME...7`
-    ## * `MIDDLE NAME` -> `MIDDLE NAME...8`
-    ## * ...
-
-    ## Warning: One or more parsing issues, see `problems()` for details
-
-    ## Rows: 75103 Columns: 37
-
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (27): COMMITTED LAST NAME, FIRST NAME...3, MIDDLE NAME...4, NAME EXTENSI...
-    ## dbl  (9): ID NUMBER, MIN MONTH, MIN DAY, MAX MONTH, MAX DAY, MAN MIN TERM/YE...
-    ## lgl  (1): NAME EXTENSION...9
-
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
-``` r
-DB1 <- DB %>% 
-  mutate_at(.vars = vars(ends_with("date")), .funs = as.Date, format = "%m/%d/%Y") %>% clean_names()
-# each person's pattern plus who was missing, a total of 7988 records. That means for the 6443 people, 2410 had a full board hearing, out of the 4,033 parolees, board members were absent 5,578 times (1 * (1085+1406) + 2 * (677+862) + 3 * (3+0)) [not paroled, paroled]
-pr_pattern_board <- pr_ind_pattern %>% left_join(pr_motion %>% filter(vote == 'Not Available'))
-```
-
-    ## Joining, by = c("id_number", "hearing_date", "motion")
-
-``` r
-pr_pattern_board <- pr_pattern_board %>% mutate(missing_board_member = board_member_last_name %>%  replace(is.na(.), "none"))
-
-
-# cross tabulation counts of grant vs. not grant outcomes by parole member absence
-board_summary <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board)
-board_summary
-```
-
-    ##                     is_paroled
-    ## missing_board_member NOT PAROLED PAROLED
-    ##            Bittinger         262     199
-    ##            Cotton            492     665
-    ##            Gissler           420     665
-    ##            Langan            286     316
-    ##            none              901    1509
-    ##            Olomi              42      48
-    ##            Patlan            399     517
-    ##            Richard           115      94
-    ##            Twiss             432     626
-
-``` r
-100 * prop.table(board_summary, 1)
-```
-
-    ##                     is_paroled
-    ## missing_board_member NOT PAROLED  PAROLED
-    ##            Bittinger    56.83297 43.16703
-    ##            Cotton       42.52377 57.47623
-    ##            Gissler      38.70968 61.29032
-    ##            Langan       47.50831 52.49169
-    ##            none         37.38589 62.61411
-    ##            Olomi        46.66667 53.33333
-    ##            Patlan       43.55895 56.44105
-    ##            Richard      55.02392 44.97608
-    ##            Twiss        40.83176 59.16824
-
-``` r
-### parole rate among Black prisoners when certain members were absent 
-pr_pattern_board <- pr_pattern_board %>% left_join(DB1)
-```
-
-    ## Joining, by = "id_number"
-
-``` r
-board_summary_race <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(race_desc == "BLACK"))
-100 * prop.table(board_summary_race, 1)
-```
-
-    ##                     is_paroled
-    ## missing_board_member NOT PAROLED  PAROLED
-    ##            Bittinger    62.20472 37.79528
-    ##            Cotton       48.08362 51.91638
-    ##            Gissler      37.63066 62.36934
-    ##            Langan       54.36242 45.63758
-    ##            none         41.26739 58.73261
-    ##            Olomi        53.84615 46.15385
-    ##            Patlan       51.51515 48.48485
-    ##            Richard      62.12121 37.87879
-    ##            Twiss        43.90244 56.09756
-
-``` r
-### parole rate among female prisoners when certain members were absent 
-board_summary_gender <-  xtabs(~missing_board_member + is_paroled, data = pr_pattern_board %>% filter(gender == "FEMALE"))
-100 * prop.table(board_summary_gender, 1)
-```
-
-    ##                     is_paroled
-    ## missing_board_member NOT PAROLED  PAROLED
-    ##            Bittinger    53.84615 46.15385
-    ##            Cotton       28.68852 71.31148
-    ##            Gissler      22.97297 77.02703
-    ##            Langan       36.36364 63.63636
-    ##            none         23.57414 76.42586
-    ##            Olomi        29.41176 70.58824
-    ##            Patlan       32.94118 67.05882
-    ##            Richard      41.66667 58.33333
-    ##            Twiss        23.37662 76.62338
