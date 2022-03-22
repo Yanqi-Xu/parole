@@ -230,9 +230,16 @@ pr_miss <- pr_miss %>% mutate(missing_rate = count/total)
 pr_miss_true <- pr_miss %>% filter(missing_rate ==1 & vote == "Not Available")
 
 # how many board members missed that full day by date. The actual number of days is 184.
-# 119 days with one board member absent, 69 days when two board members were missing throughout the day.
+# 115 days with one board member absent, 69 days when two board members were missing throughout the day.
 pr_board_miss <- pr_miss_true %>% group_by(hearing_date) %>% summarize(member_absent = n())
+pr_board_miss %>% tabyl(member_absent)
+```
 
+    ##  member_absent   n percent
+    ##              1 115   0.625
+    ##              2  69   0.375
+
+``` r
 #break it down by year
 x <- pr_board_miss %>% mutate(year=year(hearing_date)) %>% tabyl(year) %>% select(-percent) %>% rename(missed = n)
 
