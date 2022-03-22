@@ -63,7 +63,7 @@ pr_by_votes <- fill_results(pr_votes1)
 
 ### Summarize
 #### Data manipulation
-pr_ind: transpose the data from (board member last name and their votes) into (cotton, gissler, etc.) still 6521 individual hearings
+pr_ind: transpose the data from (board member last name and their votes) into (cotton, gissler, etc.) still 6,521 individual hearings
 Then we need to get rid of empty rows. Also sometimes there're records with no motion recorded but votes recorded. Those could be data entry errors. We decide to still include them in the data and count absence rate accordingly. So we first create a column `none` indicating whether the motion made was none/NA.
 pr_motion: collapse the three columns `paroled`, `denied` and `deferred` and `none` into one single column motion.
 
@@ -77,7 +77,7 @@ pr_motion <- pr_motion %>%
   filter(!is.na(value)) %>% select(-value)
 ```
 #### individual vote pattern
-When we group the `pr_motion` dataset by member and vote so we can see the vote pattern for each hearing, namely how many voted yes, no and not available.
+When we group the `pr_motion` dataset by member and vote so we can see the voting pattern for each of the 6,521 hearing, namely how many voted yes, no and not available.
 ```{r individual pattern}
 # new table by motion and type of vote counts, 36,150 records 
 pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>% summarize(number = n())
@@ -94,7 +94,8 @@ pr_ind_pattern <- pr_ind_pattern %>%
   mutate(is_paroled = if_else(condition = motion == "paroled" & yes >=3, true = "PAROLED", false = "NOT PAROLED"),
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
-Of these `r nrow(pr_ind_pattern)` hearings, `r sum(pr_ind_pattern$missing_member == "MISSING MEMBER")` had at least one absence.
+Of these `r nrow(pr_ind_pattern)` hearings, `r sum(pr_ind_pattern$missing_member == "MISSING MEMBER")` had at least one absence, whereas 
+`r sum(pr_ind_pattern$missing_member == "NO MISSING")` had the full board in attendance.
 
 ### Number of hearings attended by partial v. full board 
 This section seeks to answer the first question: How many individual hearings had the full board in attendance and how many had at least one member missing?
@@ -105,13 +106,19 @@ We can break it down by year and the missing rate again.
 ```{r}
 pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% tabyl(year, missing_member) %>% clean_names() %>% mutate(rate = missing_member/(missing_member+no_missing))
 ```
-
+Check voted-on, but nonmotion hearings' voting patterns
 ```{r}
-pr_by_votes %>% filter(is.na(deferred) & is.na(denied) & is.na(paroled)) %>% tabyl(id_number,vote) %>% clean_names() %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
-```
+nomotion <- pr_by_votes %>% filter(is.na(deferred) & is.na(denied) & is.na(paroled)) %>% group_by(id_number,hearing_date,vote) %>% summarize(n=n()) %>% pivot_wider(names_from = vote,values_from = n) %>% clean_names()
 
+nomotion %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
+
+with_motion <- pr_by_votes %>% filter(!(is.na(deferred) & is.na(denied) & is.na(paroled))) %>% group_by(id_number,hearing_date,vote) %>% summarize(n=n()) %>% pivot_wider(names_from = vote,values_from = n) %>% clean_names()
+
+with_motion %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)) %>% tabyl(missing_member)
+```
+Adding these two tables, we can see that the totals agree with the breakdown above. 
 ### Number of hearing days with at least one absence
-This answers the second question: 2. How many full days had at least one board member missing the full day, what's the percentage of absence days out of all hearing days?
+This answers the second question: 2. How many full days had at least one board member missing the full day, and what's the percentage of absent days out of all hearing days?
 ```{r}
 #all the types of votes a board member ever cast that day. how many were yes, no, not available
 pr_miss <- pr_motion %>% group_by(board_member_last_name, hearing_date,vote) %>% summarize( count = n())
@@ -126,7 +133,7 @@ pr_miss <- pr_miss %>% mutate(missing_rate = count/total)
 pr_miss_true <- pr_miss %>% filter(missing_rate ==1 & vote == "Not Available")
 
 # how many board members missed that full day by date. The actual number of days is 184.
-# 119 days with one board member absent, 69 days when two board members were missing
+# 119 days with one board member absent, 69 days when two board members were missing throughout the day.
 pr_board_miss <- pr_miss_true %>% group_by(hearing_date) %>% summarize(member_absent = n())
 
 #break it down by year
@@ -166,7 +173,7 @@ pr_miss_stat
 
 
 #### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
-Note that here we need to eliminate all the none-motion hearings and only look at hearings at which an actual motion was made. 
+Note that here we need to eliminate all the non-motion hearings and only look at hearings at which an actual motion was made. 
 ```{r}
 
 # look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
@@ -177,6 +184,13 @@ cross_tabs
 # cross tabulation in percentage
 100* prop.table(cross_tabs, margin = 1) -> cross_tabs_perc
 cross_tabs_perc
+
+binary_cross_tabs <- xtabs(~missing_member + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
+
+binary_cross_tabs
+# cross tabulation in percentage
+100* prop.table(binary_cross_tabs, margin = 1) -> binary_cross_tabs_perc
+binary_cross_tabs_perc
 ```
 
 
@@ -193,3 +207,11 @@ test <- chisq.test(table(pr_for_chisq$is_paroled, pr_for_chisq$missing_member))
 test$p.value <= 0.05
 ```
 
+
+### The financial cost
+If the parole rates under the full board and under a partial board were the same at about 62%, we should see more prisoners get out. We estimated the number of individuals affected to be the difference in parole rate (62.61% - 56.23%) times the number of people who had a hearing with absent board members  `r with_motion$id_number %>% n_distinct()`. It means about 254 people. 
+```{r}
+with_motion$id_number %>% n_distinct()
+```
+
+When estimating the financial cost of the absences, we use 250 times the FY2021 per diem, which according to NDCS spokesperson is `$11,550.62` for the whole year, or `$31.65` per day. Based on audio recordings and data, these prisoners typically are deferred for a month when it was an absence issue, that's 31.65*254*30 = 241,173. If we calculate it with the lower `$9,408.32` per diem rate in FY2019 , or `$25.77` per day, it still amounts to 25.77*254*30 = 196,367.
