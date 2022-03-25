@@ -1,5 +1,6 @@
 Parole hearing data diary
 ================
+Yanqi Xu/Flatwater Free Press
 
 ## Load libraries
 
@@ -21,15 +22,15 @@ Nebraska Board of Parole. We ask three data questions: 1. How many
 individual cases/hearings had at least one absence and how many had the
 full board in attendance? 2. How many full days had at least one board
 member missing the full day, what’s the percentage of absence days out
-of all hearing days? 3. What’s the parole grant rate when the parole was
-full, short 1,2,and 3 members respectively?
+of all hearing days? 3. What’s the parole grant motion rate when the
+parole was full, missing 1,2,and 3 members respectively?
 
 ### Read
 
 clean columns
 
 ``` r
-pr_votes_path <- here("parole","parole_by_votes.csv")
+pr_votes_path <- here("parole","parole_by_vote.csv")
 pr_votes <- read_csv(pr_votes_path)
 ```
 
@@ -53,13 +54,13 @@ pr_votes1 <- pr_votes %>%
 ### Fill down rows
 
 In the original data, each individual hearing takes up five lines, with
-the first line showing the motions (there are seveal columns
-`deferred`,`paroled`,`denied` and `defer to md`, which means deferred to
-mandatory discharge and is not a motion of its own but often accompanies
-a denial).
-
-First, I filled down the person’s id number, name and hearing days. Then
-I wrote a function `fill_results()` here to fill down the motion for all
+the first line showing the motions (columns
+`deferred`,`paroled`,`denied` and `defer to md`. `Defer to md` means
+deferred to mandatory discharge and is not a motion of its own but often
+accompanies a denial).  
+First, we need to fill down the person’s id number, name and hearing
+days so that each record has an associated prisoner and hearing date. I
+wrote a function `fill_results()` here to fill down the motion for all
 five members.
 
 ``` r
@@ -90,14 +91,15 @@ pr_by_votes <- fill_results(pr_votes1)
 #### Data manipulation
 
 pr_ind: transpose the data from (board member last name and their votes)
-into (cotton, gissler, etc.) still 6,521 individual hearings Then we
-need to get rid of empty rows. Also sometimes there’re records with no
-motion recorded but votes recorded. Those could be data entry errors. We
-decide to still include them in the data and count absence rate
-accordingly. So we first create a column `none` indicating whether the
-motion made was none/NA. pr_motion: collapse the three columns
-`paroled`, `denied` and `deferred` and `none` into one single column
-motion.
+into (cotton, gissler, etc.). There’s a total of 6,521 individual
+hearings Then we need to get rid of empty rows. Also sometimes there’re
+records with no motion recorded but votes recorded. Those could be data
+entry errors. We decide to still include them in the data and count
+absence rate accordingly. So we first create a column `none` indicating
+whether the motion made was none/NA.
+
+pr_motion: collapse the three columns `paroled`, `denied` and `deferred`
+and `none` into one single column `motion`.
 
 ``` r
 # create a column indicating if the motion was "none"
@@ -109,11 +111,11 @@ pr_motion <- pr_motion %>%
   filter(!is.na(value)) %>% select(-value)
 ```
 
-#### individual vote pattern
+#### individual voting pattern
 
-When we group the `pr_motion` dataset by member and vote so we can see
-the voting pattern for each of the 6,521 hearing, namely how many voted
-yes, no and not available.
+By grouping the `pr_motion` data set by member and vote, we can see the
+voting pattern for each of the 6,521 hearing, namely, how many board
+members voted yes, no and not available at each hearing.
 
 ``` r
 # new table by motion and type of vote counts, 36,150 records 
@@ -127,7 +129,7 @@ pr_ind_pattern <- pr_motion %>% group_by(id_number,hearing_date,vote,motion) %>%
 pr_ind_pattern <- pr_ind_pattern %>% pivot_wider(names_from = vote, values_from = number) %>% clean_names()
 ```
 
-### Count the number of hearings with at least one missing member
+#### Count the number of hearings attended by partial v. full board
 
 ``` r
 # add parole indicator column & absence indicator column
@@ -135,11 +137,6 @@ pr_ind_pattern <- pr_ind_pattern %>%
   mutate(is_paroled = if_else(condition = motion == "paroled" & yes >=3, true = "PAROLED", false = "NOT PAROLED"),
          missing_member = if_else(is.na(not_available), true = "NO MISSING", false = "MISSING MEMBER"))
 ```
-
-Of these 6521 hearings, 4080 had at least one absence, whereas 2441 had
-the full board in attendance.
-
-### Number of hearings attended by partial v. full board
 
 This section seeks to answer the first question: How many individual
 hearings had the full board in attendance and how many had at least one
@@ -152,6 +149,9 @@ pr_ind_pattern$missing_member %>% tabyl()
     ##               .    n   percent
     ##  MISSING MEMBER 4080 0.6256709
     ##      NO MISSING 2441 0.3743291
+
+Of these 6521 hearings, 4080 had at least one member not voting, whereas
+2441 had the full board in attendance.
 
 We can break it down by year and the missing rate again.
 
@@ -196,7 +196,10 @@ with_motion %>%  mutate(missing_member = if_else(not_available > 0, TRUE, FALSE)
     ##              NA 2410 0.3740494            NA
 
 Adding these two tables, we can see that the totals agree with the
-breakdown above. ### Number of hearing days with at least one absence
+breakdown above.
+
+### Number of hearing days with at least one absence
+
 This answers the second question: 2. How many full days had at least one
 board member missing the full day, and what’s the percentage of absent
 days out of all hearing days?
@@ -316,7 +319,7 @@ pr_miss_stat
     ## 7 Richard                                   8                 46       0.174
     ## 8 Twiss                                    45                276       0.163
 
-#### Parole grant rate in cases of a 5-member board, 4-member board and 3-member board.
+#### Parole motion rate in cases of a 5-member board, 4-member board and 3-member board.
 
 Note that here we need to eliminate all the non-motion hearings and only
 look at hearings at which an actual motion was made.
@@ -393,11 +396,11 @@ test$p.value <= 0.05
 
 ### The financial cost
 
-We first need to see who went through a meeting with members missing.
-Then we also constrain it to the subset that actually had more than one
-hearing. We end up with a dataset `lag_btw_hears` of all 3,746 hearings
-of people who had multiple hearings and also had at least one missed
-vote.
+We first need to see who went through a meeting with missing votes. Then
+we also further limit this group to the subset that actually had more
+than one hearing. We end up with a data set `lag_btw_hears` of all 3,746
+hearings of people who had multiple hearings and also had at least one
+missed vote.
 
 Then we look at these people’s meetings in front of a partial board and
 the next meeting immediately after said meetings.
@@ -434,36 +437,55 @@ lag_btw_hears <- tibble::rowid_to_column(lag_btw_hears, "rowid")
 miss_posit <- lag_btw_hears %>% filter(not_available >=1) %>% .$rowid
 ```
 
-After we calculate the difference in between each person’s each meeting,
-we limit it only to the hearing with at least one missing vote and the
-subsequent meeting.
+After we calculate the difference in between each person’s each meeting
+in `lag_btw_hears_calc`, we limit it only to the hearing with at least
+one missing vote and the subsequent meeting in the `lag_final` data
+frame.
 
 ``` r
-### calculate the lags between the day
+### calculate the lags between the two days
 lag_btw_hears_calc <- lag_btw_hears %>% group_by(id_number) %>% mutate(diff = as.numeric(hearing_date - lead(hearing_date))*(-1L)) %>% select(1:3, diff, everything())
-
+# by doing this, we establish a one-to-one relationship between each partial-board hearing and the wait time before the next hearing. If someone's had a full-board hearing after a partial-board hearing, that hearing is counted, but if there's a full hearing and then a partial board hearing, the first hearing will be excluded.
 lag_final <- lag_btw_hears_calc %>% filter(rowid %in% miss_posit)
-
-lag_final$diff %>% summary()
+# what's the most common non-zero lag? 
+diff_vec <- lag_final %>% filter(!is.na(diff)) %>%  group_by(diff) %>% summarize(n=n()) %>% arrange(desc(n))
+diff_vec
 ```
 
-    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
-    ##     1.0    35.0    98.0   175.1   245.0  1241.0    1003
+    ## # A tibble: 398 × 2
+    ##     diff     n
+    ##    <dbl> <int>
+    ##  1    28   181
+    ##  2    35    83
+    ##  3    63    54
+    ##  4    56    49
+    ##  5    98    38
+    ##  6    91    31
+    ##  7   182    30
+    ##  8    84    26
+    ##  9   126    21
+    ## 10    42    20
+    ## # … with 388 more rows
+
+``` r
+diff_vec %>% ggplot(aes(x=diff, y = n)) + geom_col() + theme_bw() + labs(title = "Distribution of wait time till next hearing among prisoners who were deferred by a partial board")
+```
+
+![](parole_data_diary_public_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 If the parole rates under the full board and under a partial board were
-the same at about 62%, we should see more prisoners get out. We
+the same at about 62.6%, we should see more prisoners get out. We
 estimated the number of individuals affected to be the difference in
-parole rate (62.61% - 56.23%) times the number of people who had a
-hearing with absent board members 2902.
+parole rate (62.61% - 56.24%) multiplied by the number of prison who had
+a hearing with missing votes 2902.
 
 ``` r
-pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% filter(missing_member == "MISSING MEMBER") %>% .$id_number %>% n_distinct() -> ind_at_partial
+pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% filter(not_available >0) %>% .$id_number %>% n_distinct() -> ind_at_partial
 
-
-ind_at_partial * (62.61-56.34)/100
+ind_at_partial * (62.61-56.24)/100
 ```
 
-    ## [1] 181.9554
+    ## [1] 184.8574
 
 ``` r
 miss_ind <- pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% filter(!is.na(not_available)) %>% group_by(id_number,year) %>% summarize(n=n()) %>% group_by(year) %>% summarize(n=n())
@@ -491,8 +513,46 @@ pr_ind_pattern %>% mutate(year = year(hearing_date)) %>% filter(missing_member =
     ## 3  2020  1260
     ## 4  2021  1021
 
-With the lowest FY 2018 per diem rate of $22.53 per day, the monthly
-cost for housing still goes up to 22.53\* 4080 \* 0.0627 \*28 =
-$161,378.97 and the cost only goes up as the per diem rate goes up and
-as the stay goes beyond 28. That’s why we estimated the cost of housing
-these prisoners could amount to hundreds of thousands of dollars.
+The data and our reporting show that when someone was deferred by a
+partial board, the most common outcome was to wait 28 days before their
+next hearing. At the lowest 2018 per diem rate of $22.53 per day, Xu
+estimated the monthly cost for housing those not paroled by a partial
+board to be: $22.53 (lowest possible daily cost) x 4,080 (the number of
+hearings with less than five members voting) x 0.0637 (the difference in
+parole rates) x 28 (the most common wait time until their next hearing)
+= $163,953 That is the lowest possible cost estimate. The real number is
+likely far higher. For example, this fiscal year the per diem rate
+jumped to $31.65. It also increases when a potential parolee’s wait time
+exceeds 28 days.
+
+### Board member’s vote distribution by motion
+
+We can see the distribution of `yes`,`no`,`abstain`,`deferment only`
+votes on the three motions (`parole`,`defer` and `deny`).
+
+``` r
+pr_bm <- pr_motion %>% group_by(board_member_last_name, motion,vote) %>% summarize(count = n())
+```
+
+    ## `summarise()` has grouped output by 'board_member_last_name', 'motion'. You can override using the `.groups` argument.
+
+``` r
+# add a tally of total hearings with that motion
+pr_bm <- pr_bm %>% add_tally(count)  
+pr_bm <- pr_bm %>% mutate(type_rate = count/n)
+
+# check how often each board member voted no on a parole motion
+pr_bm %>% filter(motion == "paroled" & vote == "No")
+```
+
+    ## # A tibble: 7 × 6
+    ## # Groups:   board_member_last_name, motion [7]
+    ##   board_member_last_name motion  vote  count     n type_rate
+    ##   <chr>                  <chr>   <chr> <int> <int>     <dbl>
+    ## 1 Bittinger              paroled No       19  1416   0.0134 
+    ## 2 Cotton                 paroled No       20  3777   0.00530
+    ## 3 Gissler                paroled No       33  3777   0.00874
+    ## 4 Langan                 paroled No       42  2361   0.0178 
+    ## 5 Patlan                 paroled No      132  3569   0.0370 
+    ## 6 Richard                paroled No       28   641   0.0437 
+    ## 7 Twiss                  paroled No      532  3136   0.170
