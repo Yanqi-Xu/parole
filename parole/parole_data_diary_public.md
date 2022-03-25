@@ -2,6 +2,16 @@ Parole hearing data diary
 ================
 Yanqi Xu/Flatwater Free Press
 
+## Data
+
+The data was obtained via a public records request to the Nebraska Board
+of Parole. It covers individual parole hearings from May 21, 2018,
+through December 9, 2021. We ask three data questions: - How many parole
+board hearings occur before a partial parole board? - What’s the number
+of hearing days with at least one member missing all the hearings that
+day? - Is there a difference in parole motion rates in hearings attended
+by a full board vs. a partial board?
+
 ## Load libraries
 
 ``` r
@@ -12,18 +22,7 @@ library(janitor)
 library(lubridate)
 library(campfin)
 library(calendar)
-library(googlesheets4)
 ```
-
-## Data
-
-The data was obtained via a public records request filled by the
-Nebraska Board of Parole. We ask three data questions: 1. How many
-individual cases/hearings had at least one absence and how many had the
-full board in attendance? 2. How many full days had at least one board
-member missing the full day, what’s the percentage of absence days out
-of all hearing days? 3. What’s the parole grant motion rate when the
-parole was full, missing 1,2,and 3 members respectively?
 
 ### Read
 
@@ -140,7 +139,7 @@ pr_ind_pattern <- pr_ind_pattern %>%
 
 This section seeks to answer the first question: How many individual
 hearings had the full board in attendance and how many had at least one
-member missing?
+member not present?
 
 ``` r
 pr_ind_pattern$missing_member %>% tabyl()
@@ -201,7 +200,7 @@ breakdown above.
 ### Number of hearing days with at least one absence
 
 This answers the second question: 2. How many full days had at least one
-board member missing the full day, and what’s the percentage of absent
+board member missing the full day, and what’s the percentage of those
 days out of all hearing days?
 
 ``` r
@@ -325,8 +324,31 @@ Note that here we need to eliminate all the non-motion hearings and only
 look at hearings at which an actual motion was made.
 
 ``` r
+# first we look at parole rate by condition of whether all five board members voted 
+binary_cross_tabs <- xtabs(~missing_member + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
+
+binary_cross_tabs
+```
+
+    ##                 is_paroled
+    ## missing_member   NOT PAROLED PAROLED
+    ##   MISSING MEMBER        1765    2268
+    ##   NO MISSING             901    1509
+
+``` r
+# cross tabulation in percentage
+100* prop.table(binary_cross_tabs, margin = 1) -> binary_cross_tabs_perc
+binary_cross_tabs_perc
+```
+
+    ##                 is_paroled
+    ## missing_member   NOT PAROLED  PAROLED
+    ##   MISSING MEMBER    43.76395 56.23605
+    ##   NO MISSING        37.38589 62.61411
+
+``` r
 # look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
-#here I also substituted all the NAs (not_available was NA means no one was unavailable)
+#here I also substituted all the NAs with zero (not_available / NA means no present at the hearing)
 cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
 
 cross_tabs
@@ -352,36 +374,15 @@ cross_tabs_perc
     ##             2    43.98960  56.01040
     ##             3   100.00000   0.00000
 
-``` r
-binary_cross_tabs <- xtabs(~missing_member + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
-
-binary_cross_tabs
-```
-
-    ##                 is_paroled
-    ## missing_member   NOT PAROLED PAROLED
-    ##   MISSING MEMBER        1765    2268
-    ##   NO MISSING             901    1509
-
-``` r
-# cross tabulation in percentage
-100* prop.table(binary_cross_tabs, margin = 1) -> binary_cross_tabs_perc
-binary_cross_tabs_perc
-```
-
-    ##                 is_paroled
-    ## missing_member   NOT PAROLED  PAROLED
-    ##   MISSING MEMBER    43.76395 56.23605
-    ##   NO MISSING        37.38589 62.61411
-
 ### Chi-square Test
 
 A chi-square test could help us determine whether the two variables
-`parole vs. not paroled` and `missing member(s) vs fully present` are independent, but
-the test assumes that these results are independent – so we only filter for
-everyone’s first hearing.
+`parole vs. not paroled` and `missing member(s) vs fully present` are
+independent, but the test assumes that these results are independent –
+so we only filter for everyone’s first hearing.
 
-The p-value is lower than 5%, so the two variables likely show a statistically significant relationship.
+The p-value is lower than 5%, so the two variables likely show a
+statistically significant relationship.
 
 ``` r
 pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date == min(hearing_date))

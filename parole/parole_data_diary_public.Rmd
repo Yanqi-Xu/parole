@@ -5,6 +5,13 @@ author: "Yanqi Xu/Flatwater Free Press"
 editor_options: 
   chunk_output_type: console
 ---
+
+## Data 
+The data was obtained via a public records request to the Nebraska Board of Parole. It covers individual parole hearings from May 21, 2018, through December 9, 2021. We ask three data questions: 
+- How many parole board hearings occur before a partial parole board? 
+- What’s the number of hearing days with at least one member missing all the hearings that day? 
+- Is there a difference in parole motion rates in hearings attended by a full board vs. a partial board?
+
 ## Load libraries
 ```{r libraries,results='hide',message=FALSE}
 options(scipen = 2)
@@ -14,14 +21,7 @@ library(janitor)
 library(lubridate)
 library(campfin)
 library(calendar)
-library(googlesheets4)
 ```
-
-## Data 
-The data was obtained via a public records request filled by the Nebraska Board of Parole. We ask three data questions: 
-1. How many individual cases/hearings had at least one absence and how many had the full board in attendance?
-2. How many full days had at least one board member missing the full day, what's the percentage of absence days out of all hearing days?
-3. What's the parole grant motion rate when the parole was full, missing 1,2,and 3 members respectively? 
 
 ### Read
 clean columns
@@ -96,7 +96,7 @@ pr_ind_pattern <- pr_ind_pattern %>%
 ```
 
 
-This section seeks to answer the first question: How many individual hearings had the full board in attendance and how many had at least one member missing?
+This section seeks to answer the first question: How many individual hearings had the full board in attendance and how many had at least one member not present?
 ```{r missing vs. fully present}
 pr_ind_pattern$missing_member %>% tabyl()
 ```
@@ -122,7 +122,7 @@ Adding these two tables, we can see that the totals agree with the breakdown abo
 
 
 ### Number of hearing days with at least one absence
-This answers the second question: 2. How many full days had at least one board member missing the full day, and what's the percentage of absent days out of all hearing days?
+This answers the second question: 2. How many full days had at least one board member missing the full day, and what's the percentage of those days out of all hearing days?
 ```{r}
 #all the types of votes a board member ever cast that day. how many were yes, no, not available
 pr_miss <- pr_motion %>% group_by(board_member_last_name, hearing_date,vote) %>% summarize( count = n())
@@ -179,22 +179,22 @@ pr_miss_stat
 #### Parole motion rate in cases of a 5-member board, 4-member board and 3-member board.
 Note that here we need to eliminate all the non-motion hearings and only look at hearings at which an actual motion was made. 
 ```{r}
-
-# look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
-#here I also substituted all the NAs (not_available was NA means no one was unavailable)
-cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
-
-cross_tabs
-# cross tabulation in percentage
-100* prop.table(cross_tabs, margin = 1) -> cross_tabs_perc
-cross_tabs_perc
-
+# first we look at parole rate by condition of whether all five board members voted 
 binary_cross_tabs <- xtabs(~missing_member + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
 
 binary_cross_tabs
 # cross tabulation in percentage
 100* prop.table(binary_cross_tabs, margin = 1) -> binary_cross_tabs_perc
 binary_cross_tabs_perc
+
+# look at how many assessments were approved and total hearings heard by 5,4,3,and2 board members
+#here I also substituted all the NAs with zero (not_available / NA means no present at the hearing)
+cross_tabs <- xtabs(~not_available + is_paroled, data = pr_ind_pattern %>% filter(motion != "none") %>%  mutate(not_available = replace_na(not_available, replace = 0)))
+
+cross_tabs
+# cross tabulation in percentage
+100* prop.table(cross_tabs, margin = 1) -> cross_tabs_perc
+cross_tabs_perc
 ```
 
 
