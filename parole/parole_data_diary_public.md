@@ -377,12 +377,11 @@ binary_cross_tabs_perc
 ### Chi-square Test
 
 A chi-square test could help us determine whether the two variables
-`parole vs. not paroled` and `missing member(s) vs fully present`, but
-it assumes that these results are independent – so we only filter for
+`parole vs. not paroled` and `missing member(s) vs fully present` are independent, but
+the test assumes that these results are independent – so we only filter for
 everyone’s first hearing.
 
-the p value is lower than 5%, so the two variables are not independent
-it seems.
+The p-value is lower than 5%, so the two variables likely show a statistically significant relationship.
 
 ``` r
 pr_for_chisq <- pr_ind_pattern %>% group_by(id_number) %>% filter(hearing_date == min(hearing_date))
